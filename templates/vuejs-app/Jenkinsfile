@@ -1,15 +1,28 @@
 @Library('cb-days@master') _
 pipeline {
   agent none
+  triggers {
+    eventTrigger jmespathQuery("event=='imagePush' && name=='node'")
+  }
   options { 
     buildDiscarder(logRotator(numToKeepStr: '2'))
     skipDefaultCheckout true
     preserveStashes(buildCount: 2)
     timeout(time: 30, unit: 'MINUTES')
   }
+  triggers {
+	eventTrigger jmespathQuery("event=='ImagePush' && name=='node'")
+}
   environment {
     repoOwner = "${repoOwner}"
     credId = "${githubCredentialId}"
+  }
+  stage('Node Image Push') {
+	when {
+		allOf {
+		 branch 'master'
+		 triggeredBy 'EventTriggerCause'
+    }
   }
   stages('VueJS Test and Build')
   {
@@ -34,6 +47,18 @@ pipeline {
         always {
           junit 'output/coverage/junit/junit.xml'
         }
+      }
+    }  
+    stage('Node Image Push') {
+      agent any
+      when {
+        allOf {
+          branch 'master'
+          triggeredBy 'EventTriggerCause' 
+        }
+      }
+      steps {
+        getImageBuildEventPayload()
       }
     }
     stage('Build and Push Image') {
